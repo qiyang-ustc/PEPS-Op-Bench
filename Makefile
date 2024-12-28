@@ -4,7 +4,8 @@ SHELL := /bin/bash
 # ROCM settings
 ROCM_PATH = /opt/rocm
 HIPCC = hipcc
-ROCM_FLAGS = -O3 -std=c++14 -I$(ROCM_PATH)/include -L$(ROCM_PATH)/lib -lrocblas -lhip_hcc
+ROCM_CXXFLAGS = -O3 -std=c++14
+ROCM_LDFLAGS = -lrocblas
 
 # CUDA settings
 CUDA_PATH = /usr/local/cuda
@@ -39,16 +40,16 @@ rocm: rocm/matrix_mul_test rocm/matrix_mul_fp64_test rocm/vector_add_test rocm/b
 	./rocm/basic_test > $(RESULTS_DIR)/rocm_basic.txt
 
 rocm/matrix_mul_test: rocm/matrix_mul_benchmark.cpp
-	$(HIPCC) $(ROCM_FLAGS) $< -o $@
+	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@ $(ROCM_LDFLAGS)
 
 rocm/matrix_mul_fp64_test: rocm/matrix_mul_fp64_benchmark.cpp
-	$(HIPCC) $(ROCM_FLAGS) $< -o $@
+	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@ $(ROCM_LDFLAGS)
 
 rocm/vector_add_test: rocm/vector_add.cpp
-	$(HIPCC) $(ROCM_FLAGS) $< -o $@
+	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@
 
 rocm/basic_test: rocm/testamd.cpp
-	$(HIPCC) $(ROCM_FLAGS) $< -o $@
+	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@
 
 # CUDA targets
 cuda: cuda/matrix_mul_test cuda/vector_add_test
