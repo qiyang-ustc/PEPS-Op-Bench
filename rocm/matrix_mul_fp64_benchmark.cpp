@@ -15,28 +15,30 @@ void initMatrix(double* matrix, int N) {
 void benchmarkMatrixMul(int N) {
     size_t size = N * N * sizeof(double);
 
-    // Host matrices
-    double *h_A = new double[N * N];
-    double *h_B = new double[N * N];
-    double *h_C = new double[N * N];
-
-    // Initialize matrices
-    initMatrix(h_A, N);
-    initMatrix(h_B, N);
-
-    // Device matrices
+    // Use unified memory
     double *d_A, *d_B, *d_C;
-    hipMalloc(&d_A, size);
-    hipMalloc(&d_B, size);
-    hipMalloc(&d_C, size);
+    hipMallocManaged(&d_A, size);
+    hipMallocManaged(&d_B, size);
+    hipMallocManaged(&d_C, size);
 
-    // Copy data from host to device
-    hipMemcpy(d_A, h_A, size, hipMemcpyHostToDevice);
-    hipMemcpy(d_B, h_B, size, hipMemcpyHostToDevice);
+    // Initialize matrices directly on GPU
+    #pragma omp target teams distribute parallel for
+    for (int i = 0; i < N * N; i++) {
+        d_A[i] = static_cast<double>(rand()) / RAND_MAX;
+        d_B[i] = static_cast<double>(rand()) / RAND_MAX;
+    }
 
     // Create rocBLAS handle
     rocblas_handle handle;
     rocblas_create_handle(&handle);
+
+    // Set pointer mode to host
+    rocblas_set_pointer_mode(handle, rocblas_pointer_mode_host);
+
+    // Create GPU stream
+    hipStream_t stream;
+    hipStreamCreate(&stream);
+    rocblas_set_stream(handle, stream);
 
     // Define matrix parameters
     const double alpha = 1.0;
@@ -50,7 +52,7 @@ void benchmarkMatrixMul(int N) {
                   N, N, N, &alpha, d_A, N, d_B, N, &beta, d_C, N);
 
     // Synchronize and stop timing
-    hipDeviceSynchronize();
+    hipStreamSynchronize(stream);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> diff = end - start;
 
@@ -68,14 +70,12 @@ void benchmarkMatrixMul(int N) {
     hipFree(d_A);
     hipFree(d_B);
     hipFree(d_C);
-    delete[] h_A;
-    delete[] h_B;
-    delete[] h_C;
+    hipStreamDestroy(stream);
 }
 
 int main() {
     // Test different matrix sizes (2^10 to 2^15)
-    std::vector<int> sizes = {1024, 2048, 4096, 8192, 16384, 32768}; // 2^10 to 2^15
+    std::vector<int> sizes = {8192, 16384, 32768}; // Larger matrices for MI300X
 
     for (int size : sizes) {
         std::cout << "Testing matrix size: " << size << "x" << size << std::endl;

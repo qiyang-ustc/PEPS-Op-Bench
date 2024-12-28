@@ -1,94 +1,101 @@
 # Environment setup
 SHELL := /bin/bash
 
+# Directory structure
+BUILD_DIR = target
+BIN_DIR = $(BUILD_DIR)/bin
+RESULTS_DIR = $(BUILD_DIR)/results
+REPORTS_DIR = $(BUILD_DIR)/reports
+
 # ROCM settings
 ROCM_PATH = /opt/rocm
 HIPCC = hipcc
 ROCM_CXXFLAGS = -O3 -std=c++14
 ROCM_LDFLAGS = -lrocblas
+ROCM_SRCS = $(wildcard rocm/*.cpp)
+ROCM_BINS = $(ROCM_SRCS:rocm/%.cpp=$(BIN_DIR)/rocm/%)
+ROCM_RESULTS = $(ROCM_SRCS:rocm/%.cpp=$(RESULTS_DIR)/rocm_%.txt)
 
 # CUDA settings
 CUDA_PATH = /usr/local/cuda
 NVCC = nvcc
 CUDA_FLAGS = -O3 -std=c++14 -I$(CUDA_PATH)/include -L$(CUDA_PATH)/lib64 -lcublas -lcudart
+CUDA_SRCS = $(wildcard cuda/*.cpp)
+CUDA_BINS = $(CUDA_SRCS:cuda/%.cpp=$(BIN_DIR)/cuda/%)
+CUDA_RESULTS = $(CUDA_SRCS:cuda/%.cpp=$(RESULTS_DIR)/cuda_%.txt)
 
 # MKL settings
 MKL_PATH = /opt/intel/oneapi/mkl/latest
 ICPX = icpx
 MKL_FLAGS = -O3 -std=c++14 -qopenmp -I$(MKL_PATH)/include -L$(MKL_PATH)/lib/intel64 -lmkl_intel_lp64 -lmkl_intel_thread -lmkl_core -liomp5 -lpthread -lm -ldl
+MKL_SRCS = $(wildcard mkl/*.cpp)
+MKL_BINS = $(MKL_SRCS:mkl/%.cpp=$(BIN_DIR)/mkl/%)
+MKL_RESULTS = $(MKL_SRCS:mkl/%.cpp=$(RESULTS_DIR)/mkl_%.txt)
 
 # BLAS settings
 CXX = g++
 BLAS_FLAGS = -O3 -std=c++14 -fopenmp -lopenblas
+BLAS_SRCS = $(wildcard blas/*.cpp)
+BLAS_BINS = $(BLAS_SRCS:blas/%.cpp=$(BIN_DIR)/blas/%)
+BLAS_RESULTS = $(BLAS_SRCS:blas/%.cpp=$(RESULTS_DIR)/blas_%.txt)
 
-# Output directories
-RESULTS_DIR = target
-REPORTS_DIR = target
+# All targets
+.PHONY: all clean setup rocm cuda mkl blas report
 
-# Targets
 all: setup rocm cuda mkl blas report
 
+# Directory setup
 setup:
-	mkdir -p $(RESULTS_DIR) $(REPORTS_DIR)
+	@mkdir -p $(BIN_DIR)/rocm $(BIN_DIR)/cuda $(BIN_DIR)/mkl $(BIN_DIR)/blas
+	@mkdir -p $(RESULTS_DIR) $(REPORTS_DIR)
 
-# ROCM targets
-rocm: rocm/matrix_mul_test rocm/matrix_mul_fp64_test rocm/vector_add_test rocm/basic_test
-	@echo "Running ROCM tests..."
-	./rocm/matrix_mul_test > $(RESULTS_DIR)/rocm_matrix_fp32.txt
-	./rocm/matrix_mul_fp64_test > $(RESULTS_DIR)/rocm_matrix_fp64.txt
-	./rocm/vector_add_test > $(RESULTS_DIR)/rocm_vector_add.txt
-	./rocm/basic_test > $(RESULTS_DIR)/rocm_basic.txt
+# Clean
+clean:
+	@rm -rf $(BUILD_DIR)
 
-rocm/matrix_mul_test: rocm/matrix_mul_benchmark.cpp
+# ROCM rules
+rocm: $(ROCM_RESULTS)
+
+$(BIN_DIR)/rocm/%: rocm/%.cpp
+	@mkdir -p $(dir $@)
 	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@ $(ROCM_LDFLAGS)
 
-rocm/matrix_mul_fp64_test: rocm/matrix_mul_fp64_benchmark.cpp
-	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@ $(ROCM_LDFLAGS)
+$(RESULTS_DIR)/rocm_%.txt: $(BIN_DIR)/rocm/%
+	@mkdir -p $(dir $@)
+	./$< > $@
 
-rocm/vector_add_test: rocm/vector_add.cpp
-	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@
+# CUDA rules
+cuda: $(CUDA_RESULTS)
 
-rocm/basic_test: rocm/testamd.cpp
-	$(HIPCC) $(ROCM_CXXFLAGS) $< -o $@
-
-# CUDA targets
-cuda: cuda/matrix_mul_test cuda/vector_add_test
-	@echo "Running CUDA tests..."
-	./cuda/matrix_mul_test > $(RESULTS_DIR)/cuda_matrix.txt
-	./cuda/vector_add_test > $(RESULTS_DIR)/cuda_vector_add.txt
-
-cuda/matrix_mul_test: cuda/matrix_mul_benchmark.cpp
+$(BIN_DIR)/cuda/%: cuda/%.cpp
+	@mkdir -p $(dir $@)
 	$(NVCC) $(CUDA_FLAGS) $< -o $@
 
-cuda/vector_add_test: cuda/vector_add.cpp
-	$(NVCC) $(CUDA_FLAGS) $< -o $@
+$(RESULTS_DIR)/cuda_%.txt: $(BIN_DIR)/cuda/%
+	@mkdir -p $(dir $@)
+	./$< > $@
 
-# MKL targets
-mkl: mkl/matrix_mul_test mkl/vector_add_test
-	@echo "Running MKL tests..."
-	source /opt/intel/oneapi/setvars.sh && \
-	./mkl/matrix_mul_test > $(RESULTS_DIR)/mkl_matrix.txt && \
-	./mkl/vector_add_test > $(RESULTS_DIR)/mkl_vector_add.txt
+# MKL rules
+mkl: $(MKL_RESULTS)
 
-mkl/matrix_mul_test: mkl/matrix_mul_benchmark.cpp
-	source /opt/intel/oneapi/setvars.sh && \
-	$(ICPX) $(MKL_FLAGS) $< -o $@
+$(BIN_DIR)/mkl/%: mkl/%.cpp
+	@mkdir -p $(dir $@)
+	source /opt/intel/oneapi/setvars.sh && $(ICPX) $(MKL_FLAGS) $< -o $@
 
-mkl/vector_add_test: mkl/vector_add.cpp
-	source /opt/intel/oneapi/setvars.sh && \
-	$(ICPX) $(MKL_FLAGS) $< -o $@
+$(RESULTS_DIR)/mkl_%.txt: $(BIN_DIR)/mkl/%
+	@mkdir -p $(dir $@)
+	source /opt/intel/oneapi/setvars.sh && ./$< > $@
 
-# BLAS targets
-blas: blas/matrix_mul_test blas/vector_add_test
-	@echo "Running BLAS tests..."
-	./blas/matrix_mul_test > $(RESULTS_DIR)/blas_matrix.txt
-	./blas/vector_add_test > $(RESULTS_DIR)/blas_vector_add.txt
+# BLAS rules
+blas: $(BLAS_RESULTS)
 
-blas/matrix_mul_test: blas/matrix_mul_benchmark.cpp
+$(BIN_DIR)/blas/%: blas/%.cpp
+	@mkdir -p $(dir $@)
 	$(CXX) $(BLAS_FLAGS) $< -o $@
 
-blas/vector_add_test: blas/vector_add.cpp
-	$(CXX) $(BLAS_FLAGS) $< -o $@
+$(RESULTS_DIR)/blas_%.txt: $(BIN_DIR)/blas/%
+	@mkdir -p $(dir $@)
+	./$< > $@
 
 # Generate combined report
 report:
@@ -98,35 +105,12 @@ report:
 	@echo "<style>pre { background-color: #f5f5f5; padding: 10px; }</style>" >> $(REPORTS_DIR)/combined_report.html
 	@echo "</head><body>" >> $(REPORTS_DIR)/combined_report.html
 	@echo "<h1>Combined Benchmark Results</h1>" >> $(REPORTS_DIR)/combined_report.html
-	@echo "<h2>ROCM Results</h2>" >> $(REPORTS_DIR)/combined_report.html
-	@echo "<h3>Matrix Multiplication FP32</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/rocm_matrix_fp32.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h3>Matrix Multiplication FP64</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/rocm_matrix_fp64.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h3>Vector Addition</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/rocm_vector_add.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h2>CUDA Results</h2>" >> $(REPORTS_DIR)/combined_report.html
-	@echo "<h3>Matrix Multiplication</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/cuda_matrix.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h3>Vector Addition</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/cuda_vector_add.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h2>MKL Results</h2>" >> $(REPORTS_DIR)/combined_report.html
-	@echo "<h3>Matrix Multiplication</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/mkl_matrix.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h3>Vector Addition</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/mkl_vector_add.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h2>BLAS Results</h2>" >> $(REPORTS_DIR)/combined_report.html
-	@echo "<h3>Matrix Multiplication</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/blas_matrix.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre><h3>Vector Addition</h3><pre>" >> $(REPORTS_DIR)/combined_report.html
-	@cat $(RESULTS_DIR)/blas_vector_add.txt >> $(REPORTS_DIR)/combined_report.html
-	@echo "</pre></body></html>" >> $(REPORTS_DIR)/combined_report.html
-
-clean:
-	rm -f rocm/matrix_mul_test rocm/matrix_mul_fp64_test rocm/vector_add_test rocm/basic_test
-	rm -f cuda/matrix_mul_test cuda/vector_add_test
-	rm -f mkl/matrix_mul_test mkl/vector_add_test
-	rm -f blas/matrix_mul_test blas/vector_add_test
-	rm -rf $(RESULTS_DIR) $(REPORTS_DIR)
-
-.PHONY: all setup rocm cuda mkl blas report clean
+	@for result in $(RESULTS_DIR)/*.txt; do \
+		if [ -f "$$result" ]; then \
+			echo "<h2>$$(basename $$result .txt)</h2>" >> $(REPORTS_DIR)/combined_report.html; \
+			echo "<pre>" >> $(REPORTS_DIR)/combined_report.html; \
+			cat $$result >> $(REPORTS_DIR)/combined_report.html; \
+			echo "</pre>" >> $(REPORTS_DIR)/combined_report.html; \
+		fi \
+	done
+	@echo "</body></html>" >> $(REPORTS_DIR)/combined_report.html
