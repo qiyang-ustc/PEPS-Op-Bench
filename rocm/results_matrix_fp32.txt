@@ -1,0 +1,4 @@
+Matrix size: 1024x1024, Time: 0.0383658 seconds
+Matrix size: 2048x2048, Time: 0.000382728 seconds
+Matrix size: 4096x4096, Time: 0.00274376 seconds
+Matrix size: 8192x8192, Time: 0.0143794 seconds

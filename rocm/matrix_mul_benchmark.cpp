@@ -4,66 +4,66 @@
 #include <vector>
 #include <cstdlib>
 
-// 初始化矩阵
+// Initialize matrix with random values
 void initMatrix(float* matrix, int N) {
     for (int i = 0; i < N * N; i++) {
-        matrix[i] = static_cast<float>(rand()) / RAND_MAX; // 随机值
+        matrix[i] = static_cast<float>(rand()) / RAND_MAX; // Random values between 0 and 1
     }
 }
 
-// 矩阵乘法基准测试
+// Matrix multiplication benchmark
 void benchmarkMatrixMul(int N) {
     size_t size = N * N * sizeof(float);
 
-    // 主机端矩阵
+    // Host matrices
     float *h_A = new float[N * N];
     float *h_B = new float[N * N];
     float *h_C = new float[N * N];
 
-    // 初始化矩阵
+    // Initialize matrices
     initMatrix(h_A, N);
     initMatrix(h_B, N);
 
-    // 设备端矩阵
+    // Device matrices
     float *d_A, *d_B, *d_C;
     hipMalloc(&d_A, size);
     hipMalloc(&d_B, size);
     hipMalloc(&d_C, size);
 
-    // 将数据从主机复制到设备
+    // Copy data from host to device
     hipMemcpy(d_A, h_A, size, hipMemcpyHostToDevice);
     hipMemcpy(d_B, h_B, size, hipMemcpyHostToDevice);
 
-    // 创建 rocBLAS 句柄
+    // Create rocBLAS handle
     rocblas_handle handle;
     rocblas_create_handle(&handle);
 
-    // 定义矩阵参数
+    // Define matrix parameters
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
-    // 启动计时
+    // Start timing
     auto start = std::chrono::high_resolution_clock::now();
 
-    // 调用 rocBLAS 矩阵乘法函数
+    // Call rocBLAS matrix multiplication function
     rocblas_sgemm(handle, rocblas_operation_none, rocblas_operation_none,
                   N, N, N, &alpha, d_A, N, d_B, N, &beta, d_C, N);
 
-    // 等待 GPU 完成
+    // Synchronize and stop timing
     hipDeviceSynchronize();
-
-    // 结束计时
     auto end = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> elapsed = end - start;
+    std::chrono::duration<double> diff = end - start;
 
-    // 将结果从设备复制回主机
-    hipMemcpy(h_C, d_C, size, hipMemcpyDeviceToHost);
+    // Calculate performance metrics
+    double seconds = diff.count();
+    double flops = 2.0 * N * N * N; // Number of floating point operations
+    double gflops = (flops * 1e-9) / seconds; // Convert to GFLOPS
 
-    // 输出执行时间
-    std::cout << "Matrix size: " << N << "x" << N
-              << ", Time: " << elapsed.count() << " seconds" << std::endl;
+    std::cout << "Matrix size: " << N << "x" << N << std::endl;
+    std::cout << "Time: " << seconds << " seconds" << std::endl;
+    std::cout << "Performance: " << gflops << " GFLOPS" << std::endl;
 
-    // 释放资源
+    // Cleanup
     rocblas_destroy_handle(handle);
     hipFree(d_A);
     hipFree(d_B);
@@ -74,13 +74,13 @@ void benchmarkMatrixMul(int N) {
 }
 
 int main() {
-    // 测试不同大小的矩阵乘法
-    std::vector<int> sizes = {1024, 2048, 4096, 8192}; // 矩阵大小
+    // Test different matrix sizes (2^10 to 2^15)
+    std::vector<int> sizes = {1024, 2048, 4096, 8192, 16384, 32768}; // 2^10 to 2^15
 
     for (int size : sizes) {
+        std::cout << "Testing matrix size: " << size << "x" << size << std::endl;
         benchmarkMatrixMul(size);
+        std::cout << "------------------------" << std::endl;
     }
-
     return 0;
 }
-

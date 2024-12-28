@@ -1,0 +1,5 @@
+Number of threads: 16
+Vector size: 1048576
+Time: 0.00285736 seconds
+Memory bandwidth: 4.40368 GB/s
+Test PASSED

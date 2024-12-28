@@ -1,0 +1,17 @@
+Available threads: 16
+------------------------
+Matrix size: 1024x1024
+Time: 0.00269464 seconds
+Performance: 796.947 GFLOPS
+Number of threads: 16
+------------------------
+Matrix size: 2048x2048
+Time: 0.0211934 seconds
+Performance: 810.624 GFLOPS
+Number of threads: 16
+------------------------
+Matrix size: 4096x4096
+Time: 0.175706 seconds
+Performance: 782.211 GFLOPS
+Number of threads: 16
+------------------------
