@@ -8,7 +8,7 @@ A comprehensive benchmark suite for comparing matrix multiplication (GEMM) perfo
 |------------|------------------|
 | NVIDIA A100 | 19.5 TFLOPS     |
 | NVIDIA H100 | 67 TFLOPS       |
-| AMD MI300A  | 163 TFLOPS      |
+| AMD MI300A  | 122.6 TFLOPS    |
 
 ## Benchmark Results
 
@@ -55,6 +55,6 @@ A comprehensive benchmark suite for comparing matrix multiplication (GEMM) perfo
 ## Key Observations
 
 1. The NVIDIA H100 shows significant performance improvements over the A100, with peak performance reaching ~61 TFLOPS (91% of theoretical peak).
-2. AMD MI300A achieves peak performance of ~77 TFLOPS, which is only about 47% of its theoretical peak of 163 TFLOPS, indicating significant room for optimization.
+2. AMD MI300A achieves peak performance of ~77 TFLOPS, which is about 63% of its theoretical peak of 122.6 TFLOPS, indicating room for optimization.
 3. Intel MKL on CPU provides consistent performance around 730-740 GFLOPS for mid-range matrix sizes.
 4. All platforms show some performance degradation at larger matrix sizes (32768x32768).
